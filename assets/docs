@@ -1,0 +1,102 @@
+//24 -> 16
+//r = 6
+//g = 6
+//b = 4
+
+vec3 decodeV3FromV2(vec2 in)
+{
+	uvec2 a = uvec2(in*255.0);
+	
+	//in 0-1!
+	
+	float red = float(in.x>>2)*0.0158730159;                           //11111100 00000000
+	float green = float(((in.x & 3) << 4) | (in.y >> 4))*0.0158730159; //00000011 11110000
+	float blue = float(in.y & 15)*0.0666666667;                        //00000000 00001111
+	
+	return vec3(red,green,blue);
+}
+
+uvec2 encodeV3InV2(uvec3 col)//input in 0-255
+{
+	uvec3 a = col/uvec3(4,4,16);
+	return uvec2((col.r<<2)|(col.g>>4),(col.g<<2)|col.b)&255;
+}
+
+
+
+
+
+
+
+
+
+//////////////// new vvvvvv
+
+
+
+4 vox per px
+domain:?
+128*64*128 = 512x512 img = 1048576 voxels
+color channel = uv in pallette
+
+////////
+
+#define TEX_SLOTS_X 4
+#define INV_TEX_SIZE vec2(0.001953125)
+#define SLOT_SIZE vec2(128)
+#define SLOT_SIZE_DEV_TEX_SLOTS vec2(32)
+
+float sampleBlock(ivec3 pos)
+{
+	int layer = pos.y/4;
+	vec2 lPos = vec2(layer%TEX_SLOTS_X,layer/TEX_SLOTS_X)*SLOT_SIZE;
+	vec2 fPos = (lPos+pos.xz)*INV_TEX_SIZE;
+	
+	switch(pos.y%4)
+	{
+	case 0:
+		return texture(WORLD_SAMPLER,fPos).x;
+	case 1:
+		return texture(WORLD_SAMPLER,fPos).y;
+	case 2:
+		return texture(WORLD_SAMPLER,fPos).z;
+	case 3:
+		return texture(WORLD_SAMPLER,fPos).w;
+	}
+}
+
+vec4 sampleBlocks(ivec3 pos)//x layer z
+{
+	vec2 lPos = vec2(pos.y%TEX_SLOTS_X,pos.y/TEX_SLOTS_X);
+	vec2 fPos = (lPos+pos.xz)*INV_TEX_SIZE;
+	
+	return texture(WORLD_SAMPLER,fPos);
+}
+
+////////////////optim
+
+#define TEX_SLOTS_X 4
+#define INV_TEX_SIZE vec2(0.001953125)
+#define SLOT_SIZE_X 128
+#define SLOT_SIZE_Y_DEV_TEX_SLOTS 32
+
+float sampleBlock(ivec3 pos)
+{
+	int layer = pos.y/4;
+	switch(pos.y%4)
+	{
+	case 0:
+		return texture(WORLD_SAMPLER,(vec2((layer%TEX_SLOTS_X)*SLOT_SIZE,layer*SLOT_SIZE_DEV_TEX_SLOTS)+pos.xz)*INV_TEX_SIZE).x;
+	case 1:
+		return texture(WORLD_SAMPLER,(vec2((layer%TEX_SLOTS_X)*SLOT_SIZE,layer*SLOT_SIZE_DEV_TEX_SLOTS)+pos.xz)*INV_TEX_SIZE).y;
+	case 2:
+		return texture(WORLD_SAMPLER,(vec2((layer%TEX_SLOTS_X)*SLOT_SIZE,layer*SLOT_SIZE_DEV_TEX_SLOTS)+pos.xz)*INV_TEX_SIZE).z;
+	case 3:
+		return texture(WORLD_SAMPLER,(vec2((layer%TEX_SLOTS_X)*SLOT_SIZE,layer*SLOT_SIZE_DEV_TEX_SLOTS)+pos.xz)*INV_TEX_SIZE).w;
+	}
+}
+
+vec4 sampleBlocks(ivec3 pos)//x layer z
+{
+	return texture(WORLD_SAMPLER,(vec2((pos.y%TEX_SLOTS_X)*SLOT_SIZE,pos.y*SLOT_SIZE_DEV_TEX_SLOTS)+pos.xz)*INV_TEX_SIZE);
+}
